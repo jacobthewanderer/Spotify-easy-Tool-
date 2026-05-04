@@ -1,4 +1,4 @@
-const CACHE = "spotify-easy-tool-v1";
+const CACHE = "spotify-easy-tool-v3";
 const FILES = [
   "./",
   "./index.html",

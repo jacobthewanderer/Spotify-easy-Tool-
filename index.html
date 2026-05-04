@@ -95,6 +95,28 @@
       line-height: 1.45;
       color: #e9e9ef;
     }
+    .downloads {
+      display: grid;
+      gap: 8px;
+      margin: 10px 0;
+    }
+    .downloadItem {
+      display: block;
+      text-decoration: none;
+      background: #101018;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 11px 12px;
+      color: var(--accent);
+      overflow-wrap: anywhere;
+      font-weight: 700;
+    }
+    .downloadHint {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      margin: 0 0 8px;
+    }
     a { color: var(--accent); }
     .hidden { display: none !important; }
     .dangerText { color: #ffb3b3; }
@@ -109,7 +131,7 @@
 <div class="app">
   <header>
     <h1>Spotify Easy Tool</h1>
-    <p class="subtitle">iPhone web app version. No Client Secret. Uses Spotify PKCE login.</p>
+    <p class="subtitle">iPhone web app version 3. No Client Secret. Uses Spotify PKCE login.</p>
   </header>
 
   <section class="card">
@@ -157,6 +179,7 @@
       <button id="albumTracksPlaylistsBtn">8) Make split playlist(s) from saved album tracks</button>
       <button id="duplicateAlbumsBtn" class="warn">9) Review duplicate saved albums</button>
       <button id="playlistToLikedBtn">10) Like/save every song from selected playlist</button>
+      <button id="resetAppFilesBtn" class="danger">11) Reset app files/cache/login</button>
     </div>
     <p class="small">Option 8 caps playlists at <strong>2,500 tracks</strong> and names them like “Name”, “Name (2)”, “Name (3)”.</p>
   </section>
@@ -164,6 +187,7 @@
   <section class="card">
     <h2>Output</h2>
     <pre id="log"></pre>
+    <div id="downloads" class="downloads"></div>
     <div class="split">
       <button id="clearLogBtn" class="secondary">Clear Log</button>
       <button id="cancelBtn" class="danger">Cancel Current Job</button>
@@ -510,16 +534,31 @@ function csvEscape(value) {
 }
 
 function downloadText(filename, text, type = "text/csv") {
+  // iPhone-safe behavior:
+  // Do NOT auto-click the download link. On iOS, the Files/share sheet can
+  // suspend Safari and make long Spotify jobs fail with "Load failed".
+  // Instead, create a visible link the user can tap after the job finishes.
   const blob = new Blob([text], { type: `${type};charset=utf-8` });
   const url = URL.createObjectURL(blob);
+  const box = $("downloads");
+
+  const hintId = "downloadHint";
+  if (!document.getElementById(hintId)) {
+    const hint = document.createElement("p");
+    hint.id = hintId;
+    hint.className = "downloadHint";
+    hint.textContent = "Download links are created here. On iPhone, tap them after the current Spotify job finishes, then use Share/Save to Files.";
+    box.appendChild(hint);
+  }
+
   const a = document.createElement("a");
+  a.className = "downloadItem";
   a.href = url;
   a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 3000);
-  log(`Created download: ${filename}`);
+  a.textContent = `Download: ${filename}`;
+  box.appendChild(a);
+
+  log(`Created backup/export link: ${filename}`);
 }
 
 function savedAlbumsToCsv(savedAlbums) {
@@ -656,6 +695,7 @@ async function unlikeAllAlbums() {
   const albums = await getSavedAlbums();
   if (!albums.length) return log("No saved albums found.");
   downloadText(`BACKUP_saved_albums_${timestamp()}.csv`, savedAlbumsToCsv(albums));
+  log("Backup link created below. To avoid iPhone Load Failed errors, save it after this job finishes.");
   const typed = prompt(`This will remove ${albums.length} saved albums.\nType UNLIKE to continue:`);
   if (typed !== "UNLIKE") return log("Canceled.");
   const uris = albums.map(x => x.album?.uri).filter(Boolean);
@@ -718,6 +758,7 @@ async function exportSavedAlbumsCsv() {
 async function playlistFromLikedSongs() {
   const tracks = await getLikedTracks();
   downloadText(`BACKUP_liked_songs_${timestamp()}.csv`, likedTracksToCsv(tracks));
+  log("Backup link created below. To avoid iPhone Load Failed errors, save it after this job finishes.");
   const uris = tracks.map(x => x.track?.uri).filter(u => u && u.startsWith("spotify:track:"));
   if (!uris.length) return log("No playable Spotify liked songs found.");
 
@@ -750,6 +791,7 @@ async function unlikeAllLikedSongs() {
   const tracks = await getLikedTracks();
   if (!tracks.length) return log("No liked songs found.");
   downloadText(`BACKUP_liked_songs_${timestamp()}.csv`, likedTracksToCsv(tracks));
+  log("Backup link created below. To avoid iPhone Load Failed errors, save it after this job finishes.");
   const uris = tracks.map(x => x.track?.uri).filter(u => u && u.startsWith("spotify:track:"));
   const typed = prompt(`This will remove ${uris.length} liked songs.\nType UNLIKE SONGS to continue:`);
   if (typed !== "UNLIKE SONGS") return log("Canceled.");
@@ -827,6 +869,7 @@ async function reviewDuplicateSavedAlbums() {
   const threshold = strictness === "1" ? .96 : strictness === "3" ? .84 : .90;
   const albums = await getSavedAlbums();
   downloadText(`BACKUP_before_duplicate_album_review_${timestamp()}.csv`, savedAlbumsToCsv(albums));
+  log("Backup link created below. To avoid iPhone Load Failed errors, save it after this job finishes.");
 
   const records = albums.map(item => {
     const a = item.album || {};
@@ -920,6 +963,70 @@ async function likeSongsFromSelectedPlaylist() {
   await saveUrisToLibrary(uris, "tracks from playlist");
 }
 
+
+async function resetAppFilesAndCache() {
+  const warning =
+    "This resets the app data stored on this iPhone/browser.\n\n" +
+    "It clears:\n" +
+    "- Spotify login token\n" +
+    "- Saved Client ID / Redirect URI / Market\n" +
+    "- PKCE temporary login data\n" +
+    "- App cache / offline files\n" +
+    "- Output download links and log\n\n" +
+    "It does NOT delete anything from Spotify.\n" +
+    "It does NOT delete your GitHub files.\n\n" +
+    "Type RESET APP to continue:";
+
+  const typed = prompt(warning);
+  if (typed !== "RESET APP") {
+    log("Reset canceled.");
+    return;
+  }
+
+  log("Resetting local app data...");
+
+  try {
+    localStorage.clear();
+  } catch (err) {
+    log(`Could not clear localStorage: ${err.message}`);
+  }
+
+  try {
+    sessionStorage.clear();
+  } catch (err) {
+    log(`Could not clear sessionStorage: ${err.message}`);
+  }
+
+  try {
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(key => caches.delete(key)));
+      log(`Deleted ${keys.length} app cache(s).`);
+    }
+  } catch (err) {
+    log(`Could not clear caches: ${err.message}`);
+  }
+
+  try {
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(reg => reg.unregister()));
+      log(`Unregistered ${registrations.length} service worker(s).`);
+    }
+  } catch (err) {
+    log(`Could not unregister service worker: ${err.message}`);
+  }
+
+  try {
+    $("downloads").innerHTML = "";
+    logEl.textContent = "";
+  } catch {}
+
+  alert("App files/cache/login reset. The app will reload clean now.");
+  location.href = defaultRedirectUri() + "?reset=" + Date.now();
+}
+
+
 $("saveSettingsBtn").onclick = saveSettings;
 $("loginBtn").onclick = () => runJob("Log in", login);
 $("logoutBtn").onclick = () => { clearToken(); log("Login cleared."); };
@@ -937,9 +1044,10 @@ $("unlikeSongsBtn").onclick = () => runJob("Unlike all liked songs", unlikeAllLi
 $("albumTracksPlaylistsBtn").onclick = () => runJob("Make split playlists from saved album tracks", playlistsFromSavedAlbumTracks);
 $("duplicateAlbumsBtn").onclick = () => runJob("Review duplicate saved albums", reviewDuplicateSavedAlbums);
 $("playlistToLikedBtn").onclick = () => runJob("Like songs from selected playlist", likeSongsFromSelectedPlaylist);
+$("resetAppFilesBtn").onclick = () => runJob("Reset app files/cache/login", resetAppFilesAndCache);
 
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("./sw.js").catch(() => {});
+  navigator.serviceWorker.register("./sw.js?v=3").catch(() => {});
 }
 
 loadSettings();
