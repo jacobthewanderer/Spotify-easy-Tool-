@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#111111"><title>Spotify Album Playlist Builder V3</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main class="shell">
+<header><div><p class="eyebrow">SPOTIFY LIBRARY TOOL · V3</p><h1>Album Playlist Builder</h1><p class="sub">Cache every saved album first, then build automatic playlists of up to 2,500 songs.</p></div><span id="connectionPill" class="pill">Not connected</span></header>
+<section class="card"><h2>Spotify setup</h2><label>Spotify Client ID</label><div class="row"><input id="clientId" placeholder="Paste Client ID"><button id="saveClient">Save</button></div><p class="hint">Add this exact Redirect URI in Spotify Developer Dashboard:</p><div class="copyrow"><code id="redirectUri"></code><button id="copyRedirect" class="secondary">Copy</button></div><div class="actions"><button id="login">Log in with Spotify</button><button id="selfTest" class="secondary" disabled>Run self-test</button><button id="logout" class="secondary">Forget login</button></div></section>
+<section class="card"><h2>Run</h2><div class="specs"><div><span>Playlist names</span><strong>Album Playlist 1, 2, 3…</strong></div><div><span>Maximum</span><strong>2,500 songs each</strong></div><div><span>Stage 1</span><strong>Cache albums and tracks</strong></div><div><span>Stage 2</span><strong>Create and fill playlists</strong></div></div><div class="actions"><button id="start" disabled>Start / Resume</button><button id="pause" class="secondary" disabled>Pause</button><button id="exportDiagnostics" class="secondary">Export diagnostics</button><button id="reset" class="danger">Reset progress</button></div></section>
+<section class="card"><div class="progress-head"><h2>Progress</h2><strong id="percent">0%</strong></div><div class="bar"><div id="barFill"></div></div><div class="metrics"><div><span>Phase</span><strong id="phase">idle</strong></div><div><span>Albums cached</span><strong id="cached">0 / 0</strong></div><div><span>Albums placed</span><strong id="placed">0 / 0</strong></div><div><span>Current playlist</span><strong id="playlist">—</strong></div><div><span>Songs in playlist</span><strong id="playlistSongs">0 / 2500</strong></div><div><span>Total songs added</span><strong id="totalSongs">0</strong></div><div><span>Requests</span><strong id="requests">0</strong></div><div><span>Retries</span><strong id="retries">0</strong></div></div><p id="status" class="status">Ready.</p></section>
+<section class="card"><details open><summary>Activity and error log</summary><pre id="log"></pre></details></section>
+<footer>Runs entirely in your browser. No Client Secret is stored or required.</footer>
+</main><script src="app.js"></script></body></html>
